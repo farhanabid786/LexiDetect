@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangDetect — Language Detection System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=Noto+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #080b10;
+        --bg2: #0d1117;
+        --card: #111520;
+        --border: #1e2535;
+        --border2: #2a3350;
+        --accent: #4f8ef7;
+        --accent2: #7c5af7;
+        --accent3: #f75a8c;
+        --green: #3dffa0;
+        --yellow: #ffd166;
+        --text: #e2e8f5;
+        --muted: #5a6a8a;
+        --mono: "Space Mono", monospace;
+        --sans: "Syne", sans-serif;
+        --body: "Noto Sans", sans-serif;
+      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body { background: var(--bg); color: var(--text); font-family: var(--body); min-height: 100vh; overflow-x: hidden; }
+
+      body::before {
+        content: "";
+        position: fixed; inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+        pointer-events: none; z-index: 0;
+      }
+      .grid-bg {
+        position: fixed; inset: 0;
+        background-image: linear-gradient(rgba(79,142,247,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(79,142,247,0.04) 1px, transparent 1px);
+        background-size: 48px 48px; z-index: 0;
+      }
+      .grid-bg::after {
+        content: ""; position: absolute; inset: 0;
+        background: radial-gradient(ellipse 80% 60% at 50% 10%, rgba(79,142,247,0.06) 0%, transparent 70%);
+      }
+      .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+      /* HEADER */
+      header { padding: 48px 0 40px; text-align: center; }
+      .logo-chip {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: linear-gradient(135deg, rgba(79,142,247,0.15), rgba(124,90,247,0.15));
+        border: 1px solid rgba(79,142,247,0.3); border-radius: 99px;
+        padding: 6px 16px; font-family: var(--mono); font-size: 11px;
+        color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 20px;
+      }
+      .logo-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      h1 {
+        font-family: var(--sans); font-size: clamp(36px,6vw,68px); font-weight: 800;
+        line-height: 1.05; letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #e2e8f5 0%, #4f8ef7 50%, #7c5af7 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px;
+      }
+      .subtitle { font-size: 15px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.05em; }
+      .subtitle span { color: var(--accent); }
+
+      /* STATS STRIP */
+      .stats-strip { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 28px 0 40px; }
+      .stat-pill { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 20px; text-align: center; min-width: 120px; }
+      .stat-pill .val { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; }
+      .stat-pill .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+      /* MAIN CARD */
+      .main-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 0 0 1px rgba(79,142,247,0.05), 0 32px 64px rgba(0,0,0,0.5); margin-bottom: 32px; }
+      .card-top { display: grid; grid-template-columns: 1fr 1fr; }
+      @media(max-width:700px){ .card-top{ grid-template-columns:1fr; } }
+
+      .input-side { padding: 32px; border-right: 1px solid var(--border); }
+      @media(max-width:700px){ .input-side{ border-right:none; border-bottom:1px solid var(--border); } }
+      .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+      .section-label::before { content:""; width:16px; height:1px; background:var(--border2); }
+
+      textarea { width:100%; min-height:200px; background:var(--bg); border:1px solid var(--border2); border-radius:12px; color:var(--text); font-family:var(--body); font-size:15px; line-height:1.7; padding:16px; resize:vertical; outline:none; transition:border-color 0.2s, box-shadow 0.2s; }
+      textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,142,247,0.12); }
+      textarea::placeholder { color:var(--muted); }
+
+      .input-meta { display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:12px; color:var(--muted); font-family:var(--mono); }
+
+      .model-row { margin-top:16px; display:flex; gap:8px; flex-wrap:wrap; }
+      .model-btn { flex:1; min-width:100px; padding:8px 12px; background:var(--bg); border:1px solid var(--border2); border-radius:8px; color:var(--muted); font-family:var(--mono); font-size:11px; cursor:pointer; text-align:center; transition:all 0.18s; }
+      .model-btn:hover { border-color:var(--accent); color:var(--accent); }
+      .model-btn.active { background:rgba(79,142,247,0.12); border-color:var(--accent); color:var(--accent); }
+
+      .detect-btn { width:100%; margin-top:16px; padding:15px 24px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; border-radius:12px; color:#fff; font-family:var(--sans); font-size:15px; font-weight:700; cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden; letter-spacing:0.02em; }
+      .detect-btn:hover { opacity:0.92; }
+      .detect-btn:active { transform:scale(0.99); }
+      .detect-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+      .detect-btn .spinner { display:none; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto; }
+      @keyframes spin { to{ transform:rotate(360deg); } }
+      .detect-btn.loading .btn-text { display:none; }
+      .detect-btn.loading .spinner { display:block; }
+
+      /* RESULT SIDE */
+      .result-side { padding: 32px; display: flex; flex-direction: column; }
+      .result-placeholder { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--muted); text-align:center; }
+      .placeholder-icon { font-size:48px; opacity:0.3; }
+      .placeholder-text { font-family:var(--mono); font-size:12px; letter-spacing:0.08em; text-transform:uppercase; }
+
+      .result-box { display:none; flex-direction:column; gap:20px; }
+      .result-box.show { display:flex; }
+
+      .lang-hero { text-align:center; padding:24px 16px; background:var(--bg); border-radius:14px; border:1px solid var(--border2); position:relative; overflow:hidden; }
+      .lang-hero::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.08), transparent 70%); }
+      .lang-flag { font-size:52px; line-height:1; margin-bottom:10px; display:block; }
+      .lang-name { font-family:var(--sans); font-size:32px; font-weight:800; background:linear-gradient(135deg,var(--text),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:4px; }
+      .lang-code { font-family:var(--mono); font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.15em; }
+
+      .conf-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+      .conf-label { font-size:11px; color:var(--muted); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.1em; }
+      .conf-val { font-family:var(--mono); font-size:18px; font-weight:700; color:var(--green); }
+      .conf-track { height:6px; background:var(--border2); border-radius:99px; overflow:hidden; }
+      .conf-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--green)); transition:width 0.6s cubic-bezier(0.4,0,0.2,1); width:0%; }
+
+      .tags-row { display:flex; gap:8px; flex-wrap:wrap; }
+      .tag { padding:4px 10px; background:rgba(79,142,247,0.1); border:1px solid rgba(79,142,247,0.2); border-radius:6px; font-size:11px; font-family:var(--mono); color:var(--accent); }
+
+      .top3 { display:flex; flex-direction:column; gap:6px; }
+      .top3-item { display:flex; align-items:center; gap:10px; font-size:13px; }
+      .top3-lang { flex:1; color:var(--text); }
+      .top3-bar-track { flex:2; height:4px; background:var(--border2); border-radius:99px; overflow:hidden; }
+      .top3-bar-fill { height:100%; border-radius:99px; background:var(--accent2); transition:width 0.5s ease; }
+      .top3-pct { font-family:var(--mono); font-size:11px; color:var(--muted); width:42px; text-align:right; }
+
+      .warn-box { background:rgba(255,209,102,0.08); border:1px solid rgba(255,209,102,0.25); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--yellow); font-family:var(--mono); display:none; }
+      .warn-box.show { display:block; }
+      .error-box { background:rgba(247,90,140,0.08); border:1px solid rgba(247,90,140,0.25); border-radius:8px; padding:14px 16px; font-size:13px; color:var(--accent3); font-family:var(--mono); display:none; margin-top:12px; }
+      .error-box.show { display:block; }
+
+      /* SECTIONS */
+      .section-card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:28px 32px; margin-bottom:32px; }
+      .section-title { font-family:var(--sans); font-size:18px; font-weight:700; color:var(--text); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+      .section-title::after { content:""; flex:1; height:1px; background:var(--border); }
+
+      /* MODEL ACCURACY */
+      .accuracy-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+      @media(max-width:600px){ .accuracy-grid{ grid-template-columns:1fr; } }
+      .acc-card { background:var(--bg); border:1px solid var(--border2); border-radius:14px; padding:20px; text-align:center; position:relative; overflow:hidden; transition:border-color 0.2s; }
+      .acc-card:hover { border-color:var(--accent); }
+      .acc-card .model-name { font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:8px; }
+      .acc-card .acc-val { font-family:var(--sans); font-size:36px; font-weight:800; color:var(--green); line-height:1; }
+      .acc-card .acc-sub { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:4px; }
+      .acc-card.primary-model::before { content:"PRIMARY"; position:absolute; top:8px; right:8px; background:rgba(79,142,247,0.15); border:1px solid rgba(79,142,247,0.3); border-radius:4px; padding:2px 6px; font-family:var(--mono); font-size:9px; color:var(--accent); letter-spacing:0.1em; }
+
+      /* VECTORIZER INFO */
+      .vec-info { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:4px; }
+      .vec-chip { background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:12px 16px; }
+      .vec-chip .vc-label { font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px; }
+      .vec-chip .vc-val { font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); }
+
+      /* LANGUAGES GRID */
+      .langs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; }
+      .lang-chip { background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:10px 12px; cursor:pointer; transition:all 0.18s; display:flex; align-items:center; gap:8px; }
+      .lang-chip:hover { border-color:var(--accent); background:rgba(79,142,247,0.06); transform:translateY(-1px); }
+      .lang-chip .flag { font-size:18px; }
+      .lang-chip .lname { font-size:12px; font-weight:500; color:var(--text); }
+      .lang-chip .lcode { font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+      /* DEMO PHRASES */
+      .demo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+      .demo-phrase { background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:12px 14px; cursor:pointer; transition:all 0.18s; }
+      .demo-phrase:hover { border-color:var(--accent2); background:rgba(124,90,247,0.06); }
+      .demo-phrase .phrase-text { font-size:13px; color:var(--text); margin-bottom:4px; line-height:1.5; }
+      .demo-phrase .phrase-lang { font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+      /* FOOTER */
+      footer { text-align:center; padding:24px 0; border-top:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.05em; line-height:1.8; }
+      footer span { color:var(--accent); }
+
+      @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+      .fade-up { animation:fadeUp 0.5s ease both; }
+      .delay-1 { animation-delay:0.1s; }
+      .delay-2 { animation-delay:0.2s; }
+      .delay-3 { animation-delay:0.3s; }
+    </style>
+  </head>
+  <body>
+    <div class="grid-bg"></div>
+    <div class="wrapper">
+
+      <!-- HEADER -->
+      <header class="fade-up">
+        <div class="logo-chip"><span class="dot"></span> Language · Detection · System ·Using ·Machine Learning</div>
+        <h1>LexiDetect</h1>
+        <p class="subtitle">Machine Learning-based Language Detection  Model that uses various ML techniques to accurately identify the language of input text.</p>
+      </header>
+
+      <!-- STATS STRIP -->
+      <div class="stats-strip fade-up delay-1">
+        <div class="stat-pill"><div class="val">22</div><div class="lbl">Languages</div></div>
+        <div class="stat-pill"><div class="val" id="stat-best-acc">—</div><div class="lbl">Best Accuracy</div></div>
+        <div class="stat-pill"><div class="val">3</div><div class="lbl">ML Models</div></div>
+        <div class="stat-pill"><div class="val">TF-IDF</div><div class="lbl">char n-gram</div></div>
+        <div class="stat-pill"><div class="val">&lt;1ms</div><div class="lbl">Inference</div></div>
+        <div class="stat-pill"><div class="val">22K</div><div class="lbl">Training Samples</div></div>
+      </div>
+
+      <!-- MAIN DETECTION CARD -->
+      <div class="main-card fade-up delay-2">
+        <div class="card-top">
+          <!-- INPUT SIDE -->
+          <div class="input-side">
+            <div class="section-label">Input Text</div>
+            <textarea id="textInput"
+              placeholder="Type or paste text in any of 22 supported languages...&#10;&#10;Examples:&#10;Hello, how are you today? (English)&#10;नमस्ते आप कैसे हैं? (Hindi)&#10;Bonjour comment allez-vous? (French)"
+              spellcheck="false"></textarea>
+            <div class="input-meta">
+              <span id="charCount">0 chars · 0 words</span>
+              <span style="cursor:pointer;color:var(--accent3)" onclick="clearInput()">✕ Clear</span>
+            </div>
+
+            <div class="section-label" style="margin-top:20px">Select Model</div>
+            <div class="model-row">
+              <div class="model-btn active" data-model="mnb" onclick="selectModel(this,'mnb')">
+                Naive Bayes<br><small style="opacity:0.6">Primary</small>
+              </div>
+              <div class="model-btn" data-model="lr" onclick="selectModel(this,'lr')">
+                Logistic Reg.<br><small style="opacity:0.6">High Acc.</small>
+              </div>
+              <div class="model-btn" data-model="svm" onclick="selectModel(this,'svm')">
+                Linear SVM<br><small style="opacity:0.6">Best Acc.</small>
+              </div>
+            </div>
+
+            <button class="detect-btn" id="detectBtn" onclick="detect()">
+              <span class="btn-text">🔍 &nbsp;Detect Language</span>
+              <div class="spinner"></div>
+            </button>
+            <div class="error-box" id="errorBox"></div>
+          </div>
+
+          <!-- RESULT SIDE -->
+          <div class="result-side">
+            <div class="section-label">Detection Result</div>
+            <div class="result-placeholder" id="placeholder">
+              <div class="placeholder-icon">🌐</div>
+              <div class="placeholder-text">Awaiting input…<br>Enter text and click detect</div>
+            </div>
+
+            <div class="result-box" id="resultBox">
+              <div class="warn-box" id="warnBox"></div>
+
+              <div class="lang-hero">
+                <span class="lang-flag" id="rFlag">🌐</span>
+                <div class="lang-name" id="rName">—</div>
+                <div class="lang-code" id="rCode">—</div>
+              </div>
+
+              <div id="confBlock">
+                <div class="conf-header">
+                  <span class="conf-label">Confidence</span>
+                  <span class="conf-val" id="rConf">—</span>
+                </div>
+                <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+              </div>
+
+              <div class="tags-row" id="rTags"></div>
+
+              <div>
+                <div class="section-label">Top Predictions</div>
+                <div class="top3" id="rTop3"></div>
+              </div>
+
+              <div style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="rMeta"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODEL PERFORMANCE -->
+      <div class="section-card fade-up delay-3">
+        <div class="section-title">Model Performance</div>
+        <div class="accuracy-grid">
+          <div class="acc-card primary-model">
+            <div class="model-name">Multinomial Naive Bayes</div>
+            <div class="acc-val" id="acc-mnb">—</div>
+            <div class="acc-sub">% Accuracy · F1: <span id="f1-mnb">—</span></div>
+          </div>
+          <div class="acc-card">
+            <div class="model-name">Logistic Regression</div>
+            <div class="acc-val" id="acc-lr">—</div>
+            <div class="acc-sub">% Accuracy · F1: <span id="f1-lr">—</span></div>
+          </div>
+          <div class="acc-card">
+            <div class="model-name">Linear SVM</div>
+            <div class="acc-val" id="acc-svm">—</div>
+            <div class="acc-sub">% Accuracy · F1: <span id="f1-svm">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VECTORIZER INFO -->
+      <div class="section-card fade-up">
+        <div class="section-title">Feature Extraction — TF-IDF</div>
+        <div class="vec-info">
+          <div class="vec-chip"><div class="vc-label">Vectorizer</div><div class="vc-val">TF-IDF</div></div>
+          <div class="vec-chip"><div class="vc-label">Analyzer</div><div class="vc-val">char_wb</div></div>
+          <div class="vec-chip"><div class="vc-label">N-gram Range</div><div class="vc-val">(1, 3)</div></div>
+          <div class="vec-chip"><div class="vc-label">Max Features</div><div class="vc-val">50,000</div></div>
+          <div class="vec-chip"><div class="vc-label">Sublinear TF</div><div class="vc-val">True</div></div>
+          <div class="vec-chip"><div class="vc-label">Vocab Size</div><div class="vc-val" id="vocab-size">—</div></div>
+          <div class="vec-chip"><div class="vc-label">Dataset</div><div class="vc-val">22,000 samples</div></div>
+          <div class="vec-chip"><div class="vc-label">Train / Test</div><div class="vc-val">67% / 33%</div></div>
+        </div>
+      </div>
+
+      <!-- SUPPORTED LANGUAGES -->
+      <div class="section-card fade-up">
+        <div class="section-title">Supported Languages</div>
+        <div class="langs-grid" id="langsGrid"></div>
+      </div>
+
+      <!-- DEMO PHRASES -->
+      <div class="section-card fade-up">
+        <div class="section-title">Try Demo Phrases</div>
+        <div class="demo-grid" id="demoGrid"></div>
+      </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <div>Language Detection System Using Machine Learning</div>
+        <div>Built with ❤️ by Farhan Abid</div>
+        <div>all right reserverd @2026</div>
+      </footer>
+    </div>
+
+    <script>
+      let selectedModel = 'mnb';
+
+      const LANG_META = {
+        English:{code:'en',flag:'🇬🇧'}, Hindi:{code:'hi',flag:'🇮🇳'},
+        French:{code:'fr',flag:'🇫🇷'}, Spanish:{code:'es',flag:'🇪🇸'},
+        Arabic:{code:'ar',flag:'🇸🇦'}, Chinese:{code:'zh',flag:'🇨🇳'},
+        Japanese:{code:'ja',flag:'🇯🇵'}, Korean:{code:'ko',flag:'🇰🇷'},
+        Russian:{code:'ru',flag:'🇷🇺'}, Portuguese:{code:'pt',flag:'🇧🇷'},
+        Thai:{code:'th',flag:'🇹🇭'}, Tamil:{code:'ta',flag:'🇮🇳'},
+        Urdu:{code:'ur',flag:'🇵🇰'}, Persian:{code:'fa',flag:'🇮🇷'},
+        Turkish:{code:'tr',flag:'🇹🇷'}, Indonesian:{code:'id',flag:'🇮🇩'},
+        Swedish:{code:'sv',flag:'🇸🇪'}, Romanian:{code:'ro',flag:'🇷🇴'},
+        Dutch:{code:'nl',flag:'🇳🇱'}, Latin:{code:'la',flag:'🏛️'},
+        Estonian:{code:'et',flag:'🇪🇪'}, Pushto:{code:'ps',flag:'🇦🇫'},
+      };
+
+      const DEMO_PHRASES = [
+        {text:"Hello, how are you doing today?", lang:"English"},
+        {text:"नमस्ते आप कैसे हैं आज का दिन कैसा है", lang:"Hindi"},
+        {text:"Bonjour comment allez vous aujourd'hui", lang:"French"},
+        {text:"こんにちは今日はどうですか", lang:"Japanese"},
+        {text:"مرحبا كيف حالك اليوم يا صديقي", lang:"Arabic"},
+        {text:"你好今天过得怎么样", lang:"Chinese"},
+        {text:"Hola cómo estás hoy mi querido amigo", lang:"Spanish"},
+        {text:"안녕하세요 오늘은 어떻게 지내세요", lang:"Korean"},
+        {text:"สวัสดีครับวันนี้คุณเป็นยังไงบ้าง", lang:"Thai"},
+        {text:"வணக்கம் இன்று நீங்கள் எப்படி இருக்கிறீர்கள்", lang:"Tamil"},
+        {text:"Привет как вы поживаете сегодня", lang:"Russian"},
+        {text:"آپ کا استقبال ہے آج آپ کیسے ہیں", lang:"Urdu"},
+      ];
+
+      window.addEventListener('DOMContentLoaded', () => {
+        loadStats();
+        renderLangsGrid();
+        renderDemoGrid();
+        document.getElementById('textInput').addEventListener('input', updateMeta);
+        document.getElementById('textInput').addEventListener('keydown', e => {
+          if (e.ctrlKey && e.key === 'Enter') detect();
+        });
+      });
+
+      async function loadStats() {
+        try {
+          const r = await fetch('/api/stats');
+          const d = await r.json();
+          document.getElementById('acc-mnb').textContent = d.accuracy.mnb;
+          document.getElementById('acc-lr').textContent  = d.accuracy.lr;
+          document.getElementById('acc-svm').textContent = d.accuracy.svm;
+          document.getElementById('f1-mnb').textContent  = d.accuracy.mnb_f1 || '—';
+          document.getElementById('f1-lr').textContent   = d.accuracy.lr_f1  || '—';
+          document.getElementById('f1-svm').textContent  = d.accuracy.svm_f1 || '—';
+          document.getElementById('vocab-size').textContent = d.vocab_size ? d.vocab_size.toLocaleString() : '50,000';
+          const best = Math.max(d.accuracy.mnb, d.accuracy.lr, d.accuracy.svm);
+          document.getElementById('stat-best-acc').textContent = best + '%';
+        } catch(e) { console.error('Stats load failed', e); }
+      }
+
+      function renderLangsGrid() {
+        const grid = document.getElementById('langsGrid');
+        Object.entries(LANG_META).sort((a,b) => a[0].localeCompare(b[0])).forEach(([lang, m]) => {
+          const d = document.createElement('div');
+          d.className = 'lang-chip';
+          d.innerHTML = `<span class="flag">${m.flag}</span><div><div class="lname">${lang}</div><div class="lcode">${m.code.toUpperCase()}</div></div>`;
+          d.onclick = () => {
+            const demo = DEMO_PHRASES.find(p => p.lang === lang);
+            if (demo) { document.getElementById('textInput').value = demo.text; updateMeta(); detect(); }
+          };
+          grid.appendChild(d);
+        });
+      }
+
+      function renderDemoGrid() {
+        const grid = document.getElementById('demoGrid');
+        DEMO_PHRASES.forEach(p => {
+          const d = document.createElement('div');
+          d.className = 'demo-phrase';
+          const m = LANG_META[p.lang] || {};
+          d.innerHTML = `<div class="phrase-text">${m.flag||''} ${p.text}</div><div class="phrase-lang">${p.lang}</div>`;
+          d.onclick = () => { document.getElementById('textInput').value = p.text; updateMeta(); detect(); };
+          grid.appendChild(d);
+        });
+      }
+
+      function updateMeta() {
+        const t = document.getElementById('textInput').value;
+        const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+        document.getElementById('charCount').textContent = `${t.length} chars · ${words} words`;
+      }
+
+      function selectModel(el, model) {
+        document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        selectedModel = model;
+      }
+
+      function clearInput() {
+        document.getElementById('textInput').value = '';
+        updateMeta();
+        document.getElementById('resultBox').classList.remove('show');
+        document.getElementById('placeholder').style.display = 'flex';
+        document.getElementById('errorBox').classList.remove('show');
+      }
+
+      async function detect() {
+        const text = document.getElementById('textInput').value.trim();
+        const btn = document.getElementById('detectBtn');
+        const errBox = document.getElementById('errorBox');
+        errBox.classList.remove('show');
+
+        if (!text) {
+          errBox.textContent = '⚠ Please enter some text to detect.';
+          errBox.classList.add('show');
+          return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/detect', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, model: selectedModel})
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            errBox.textContent = '⚠ ' + (data.error || 'Detection failed.');
+            errBox.classList.add('show');
+            return;
+          }
+          showResult(data);
+        } catch(e) {
+          errBox.textContent = '⚠ Network error. Make sure the Flask server is running.';
+          errBox.classList.add('show');
+        } finally {
+          btn.classList.remove('loading'); btn.disabled = false;
+        }
+      }
+
+      function showResult(d) {
+        document.getElementById('placeholder').style.display = 'none';
+        document.getElementById('resultBox').classList.add('show');
+
+        document.getElementById('rFlag').textContent = d.flag || '🌐';
+        document.getElementById('rName').textContent = d.language;
+        document.getElementById('rCode').textContent = (d.code||'').toUpperCase() + ' · ' + (d.script||'') + ' Script';
+
+        if (d.confidence !== null && d.confidence !== undefined) {
+          document.getElementById('confBlock').style.display = 'block';
+          document.getElementById('rConf').textContent = d.confidence + '%';
+          setTimeout(() => { document.getElementById('confFill').style.width = d.confidence + '%'; }, 50);
+        } else {
+          document.getElementById('confBlock').style.display = 'none';
+        }
+
+        const tags = document.getElementById('rTags');
+        tags.innerHTML = '';
+        if (d.family) tags.innerHTML += `<span class="tag">${d.family}</span>`;
+        if (d.script)  tags.innerHTML += `<span class="tag">${d.script} Script</span>`;
+        tags.innerHTML += `<span class="tag">${d.model_used}</span>`;
+
+        const top3 = document.getElementById('rTop3');
+        top3.innerHTML = '';
+        if (d.top3 && d.top3.length) {
+          const maxP = d.top3[0].probability;
+          d.top3.forEach((item, i) => {
+            const m = LANG_META[item.language] || {};
+            const row = document.createElement('div');
+            row.className = 'top3-item';
+            row.innerHTML = `
+              <span class="top3-lang">${m.flag||''} ${item.language}</span>
+              <div class="top3-bar-track"><div class="top3-bar-fill" style="width:0%;opacity:${i===0?1:0.5}"></div></div>
+              <span class="top3-pct">${item.probability}%</span>`;
+            top3.appendChild(row);
+            setTimeout(() => { row.querySelector('.top3-bar-fill').style.width = (item.probability/maxP)*100+'%'; }, 100 + i*60);
+          });
+        }
+
+        const wb = document.getElementById('warnBox');
+        if (d.warning) { wb.textContent = '⚠ ' + d.warning; wb.classList.add('show'); }
+        else { wb.classList.remove('show'); }
+
+        document.getElementById('rMeta').textContent = `${d.char_count} chars · ${d.word_count} words · Model: ${d.model_used}`;
+      }
+    </script>
+  </body>
+</html>

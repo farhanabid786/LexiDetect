@@ -1,19 +1,3 @@
-"""
-Language Detection System - Model Trainer (IMPROVED v2)
-Babu Banarasi Das University, Lucknow - B.Tech Final Year Project 2026
-Team: Parash Singh Bisht | Rishabh Pandey | Kartikey Pratap Singh | Shreyash Srivastava
-Guide: Ms. Hima Saxena (Assistant Professor, CSE)
-
-KEY IMPROVEMENTS over v1:
-- ngram_range raised from (1,3) to (1,4): captures longer char patterns
-- max_features raised from 50,000 to 100,000: more vocabulary coverage
-- min_df=2: removes noise features that appear only once
-- alpha lowered to 0.01: sharper MNB discrimination
-- LR C raised to 5.0: better short-text handling
-- SVM C raised to 2.0: better short-text handling
-- Test split reduced to 20%: more data for training
-"""
-
 import pandas as pd
 import numpy as np
 import os
